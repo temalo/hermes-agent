@@ -1252,8 +1252,17 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
     telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
     if telegram_token:
         if Platform.TELEGRAM not in config.platforms:
-            config.platforms[Platform.TELEGRAM] = PlatformConfig()
-        config.platforms[Platform.TELEGRAM].enabled = True
+            # Env-only setup (no YAML block) — enable the adapter so users who
+            # configure Hermes purely via .env get the historical behaviour.
+            config.platforms[Platform.TELEGRAM] = PlatformConfig(enabled=True)
+        # else: YAML already declared the platform. Respect its ``enabled``
+        # flag (#35555) — multi-profile setups share a TELEGRAM_BOT_TOKEN via
+        # symlinked .env files but turn the adapter off in individual
+        # profiles to avoid getUpdates conflicts. Mirrors the WhatsApp and
+        # Slack rules a few branches down. The token is still recorded so
+        # outbound-only call sites (skill-driven sendMessage, scheduled
+        # notifications) can reuse it without activating the long-poll
+        # adapter.
         config.platforms[Platform.TELEGRAM].token = telegram_token
     
     # Reply threading mode for Telegram (off/first/all)
